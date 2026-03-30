@@ -15,12 +15,14 @@
       user-select:none; overflow:hidden;
     }
     canvas { border:2px solid #2a0000; box-shadow:0 0 40px #ff000044; cursor:crosshair; }
+    canvas:-webkit-full-screen { width:100vw; height:100vh; border:none; box-shadow:none; object-fit:contain; image-rendering:pixelated; }
+    canvas:fullscreen          { width:100vw; height:100vh; border:none; box-shadow:none; object-fit:contain; image-rendering:pixelated; }
     #hint { color:#2a2a2a; font-size:10px; margin-top:6px; letter-spacing:2px; }
   </style>
 </head>
 <body>
   <canvas id="c"></canvas>
-  <div id="hint">CLICK CANVAS TO LOCK MOUSE &nbsp;·&nbsp; ESC TO PAUSE</div>
+  <div id="hint">CLICK CANVAS TO LOCK MOUSE &nbsp;·&nbsp; ESC TO PAUSE &nbsp;·&nbsp; F TO FULLSCREEN</div>
 
 <script>
 // ================================================================
@@ -31,6 +33,15 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const W = 800, H = 480;
 canvas.width = W; canvas.height = H;
+
+// ── FULLSCREEN ───────────────────────────────────────────────────
+function toggleFullscreen() {
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    (canvas.requestFullscreen || canvas.webkitRequestFullscreen).call(canvas);
+  } else {
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  }
+}
 
 // ── MAP  (0=open, 1=wall) ────────────────────────────────────────
 const MAP = [
@@ -206,6 +217,8 @@ document.addEventListener('mousedown', e => {
 
 // Start screen + pause/restart handler
 window.addEventListener('keydown', e => {
+  if (e.code === 'KeyF') { toggleFullscreen(); return; }
+
   if (gameState === 'start') {
     if (e.code === KB.left  || e.code === 'KeyA') { selectedDiff = Math.max(0, selectedDiff-1); e.preventDefault(); }
     if (e.code === KB.right || e.code === 'KeyD') { selectedDiff = Math.min(2, selectedDiff+1); e.preventDefault(); }
@@ -220,7 +233,34 @@ window.addEventListener('keydown', e => {
     if (gameState === 'playing') gameState = 'paused';
     else if (gameState === 'paused') gameState = 'playing';
   }
-  if (e.code === KB.confirm && gameState === 'dead') resetGame();
+  // ENTER = quick restart (same difficulty) on end screens
+  if (e.code === KB.confirm && (gameState === 'dead')) {
+    Audio.init();
+    resetGame();
+  }
+});
+
+// ── END-SCREEN BUTTON HIT AREAS ──────────────────────────────────
+// Defined here so both renderOverlay() and the click handler share them
+const END_BTN = {
+  restart:  { x: W/2 - 230, y: H/2 + 110, w: 200, h: 44 },
+  changeDiff: { x: W/2 + 30,  y: H/2 + 110, w: 200, h: 44 },
+};
+
+canvas.addEventListener('click', e => {
+  if (gameState !== 'dead') return;
+  // Map click to canvas-space coords (handles CSS scaling in fullscreen)
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width, scaleY = H / rect.height;
+  const cx = (e.clientX - rect.left) * scaleX;
+  const cy = (e.clientY - rect.top)  * scaleY;
+
+  const hit = (b) => cx >= b.x && cx <= b.x+b.w && cy >= b.y && cy <= b.y+b.h;
+  if (hit(END_BTN.restart)) {
+    Audio.init(); resetGame();
+  } else if (hit(END_BTN.changeDiff)) {
+    gameState = 'start';
+  }
 });
 
 // ── ENEMY SPRITE  (pre-rendered offscreen) ───────────────────────
@@ -1065,6 +1105,14 @@ function renderHUD() {
     ctx.textAlign = 'left';
   }
 
+  // ── Fullscreen button (bottom-left corner) ──
+  const fsLabel = (document.fullscreenElement || document.webkitFullscreenElement) ? '⛶' : '⛶';
+  ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(W-44, H-34, 34, 24);
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.strokeRect(W-44, H-34, 34, 24);
+  ctx.fillStyle = '#555'; ctx.font = '11px Courier New'; ctx.textAlign = 'center';
+  ctx.fillText('[ F ]', W-27, H-18);
+  ctx.textAlign = 'left';
+
   // ── Floating messages ──
   messages = messages.filter(m => m.life > 0);
   for (let i = 0; i < Math.min(messages.length, 4); i++) {
@@ -1196,6 +1244,10 @@ function renderStartScreen() {
   ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Courier New'; ctx.textAlign = 'center';
   ctx.fillText('PRESS  ENTER  TO  START', W/2, 432);
   ctx.globalAlpha = 1;
+
+  // Fullscreen hint on start screen
+  ctx.fillStyle = '#2a2a2a'; ctx.font = '11px Courier New'; ctx.textAlign = 'right';
+  ctx.fillText('[ F ]  FULLSCREEN', W-16, H-12);
   ctx.textAlign = 'left';
 }
 
@@ -1237,8 +1289,20 @@ function renderOverlay() {
       ctx.fillStyle = '#444'; ctx.font = '13px Courier New';
       ctx.fillText(`BEST: Wave ${best.wave}  ·  Kills ${best.kills}`, W/2, H/2+74);
     }
-    ctx.fillStyle = '#555'; ctx.font = '14px Courier New';
-    ctx.fillText('Press ENTER to play again', W/2, H/2+104);
+    // ── Buttons ──
+    function drawBtn(b, label, bgColor, borderColor) {
+      ctx.fillStyle = bgColor;
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(b.x,b.y,b.w,b.h,5); ctx.fill(); }
+      else ctx.fillRect(b.x,b.y,b.w,b.h);
+      ctx.strokeStyle = borderColor; ctx.lineWidth = 2;
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(b.x,b.y,b.w,b.h,5); ctx.stroke(); }
+      else ctx.strokeRect(b.x,b.y,b.w,b.h);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 14px Courier New'; ctx.textAlign = 'center';
+      ctx.fillText(label, b.x + b.w/2, b.y + b.h/2 + 5);
+    }
+    drawBtn(END_BTN.restart,    'RESTART  [ENTER]',    'rgba(120,0,0,0.85)',  '#ff4444');
+    drawBtn(END_BTN.changeDiff, 'CHANGE DIFFICULTY',   'rgba(20,20,60,0.85)', '#4466ff');
+    ctx.textAlign = 'center';
   } else if (gameState === 'paused') {
     ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0,0,W,H);
     ctx.fillStyle = '#ffffff'; ctx.font = 'bold 50px Courier New';

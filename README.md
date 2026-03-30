@@ -1,77 +1,121 @@
 # Arena Deathmatch
 
-A browser-based 3D first-person shooter built entirely with vanilla HTML, CSS, and JavaScript — no libraries, no canvas frameworks, just raw raycasting.
+A browser-based 3D first-person shooter. No downloads, no installs — just open `arena-shooter.html` in any modern browser and play.
 
-![Game Screenshot](https://img.shields.io/badge/Play-In%20Browser-red?style=for-the-badge)
+---
 
-## Gameplay
+## How to Play
 
-Go head-to-head against a heavily-armoured AI opponent in a claustrophobic arena. The enemy has full state-machine AI — it patrols the map, chases you when you enter its line of sight, and strafes while shooting back. Survive long enough to put it down.
+1. Open `arena-shooter.html` in Chrome or Firefox
+2. Choose your difficulty on the start screen and press **ENTER**
+3. Click the canvas to lock your mouse for aiming
+4. Survive as long as possible, clearing waves of armoured enemies
 
-- **One life** — no respawns. Make your shots count.
-- **30 rounds** per mag. Press `R` to reload (takes 1.5 seconds).
-- Enemy accuracy scales with distance and drops as it takes damage.
-- The crosshair turns red when you have a clear shot.
+---
 
 ## Controls
 
-| Key | Action |
-|-----|--------|
-| `↑` / `↓` | Move forward / backward |
-| `←` / `→` | Rotate view |
-| `Space` | Shoot |
-| `R` | Reload |
-| `Esc` | Pause |
-| `Enter` | Restart after match ends |
+| Input | Action |
+|---|---|
+| **Mouse** | Aim |
+| **Left Click** or **Space** | Shoot |
+| **W / ↑** | Move forward |
+| **S / ↓** | Move backward |
+| **A / D** | Strafe left / right |
+| **← / →** | Turn (keyboard fallback if mouse isn't locked) |
+| **R** | Reload |
+| **Q** | Swap weapon |
+| **ESC** | Pause / resume |
+| **F** | Toggle fullscreen |
+| **ENTER** | Start game / quick restart |
 
-## How It Works
+---
 
-The renderer is a classic **DDA raycaster** (the same technique used by Wolfenstein 3D and DOOM). Each frame:
+## Difficulty
 
-1. One ray is cast per screen column using the DDA (Digital Differential Analyzer) algorithm.
-2. Wall height is calculated from the perpendicular wall distance to prevent fisheye distortion.
-3. A **z-buffer** is filled per column to allow correct sprite occlusion.
-4. The enemy is rendered as a **billboard sprite** — transformed into camera space and drawn column-by-column, skipping any column that sits behind a wall in the z-buffer.
+Choose before each run — you can change it any time from the end screen.
 
-### Enemy AI States
+| Level | What changes |
+|---|---|
+| **Easy** | Enemies move slower, deal less damage, and have worse aim |
+| **Normal** | Balanced challenge |
+| **Hard** | Enemies are faster, more accurate, and hit harder |
 
-| State | Trigger | Behaviour |
-|-------|---------|-----------|
-| `patrol` | Default / lost sight | Wanders with random direction changes; stuck-detection kicks in if it doesn't move |
-| `chase` | Player in sight, distance > 5.5 units | Moves directly toward player at full speed |
-| `attack` | Player in sight, distance ≤ 5.5 units | Strafes side-to-side and fires; accuracy falls with distance |
+---
 
-### Enemy Sprite
+## Weapons
 
-The enemy is a heavily-armoured demon soldier pre-rendered onto an offscreen `96×192` canvas at startup:
+You carry two weapons. Press **Q** to swap at any time.
 
-- Horned helmet with glowing angular eyes and a teeth grille
-- Three shoulder spikes per pauldron
-- Glowing chest reactor core (multi-ring)
-- Knee spikes and knuckle armour
-- Visible gun with muzzle brake on the right arm
-- Damage state: cracks, scorch marks, sparks from the reactor, muzzle flash
+### Pistol
+- 30 rounds per magazine
+- Fast fire rate
+- Reliable at any range
 
-## Running Locally
+### Shotgun
+- 6 shells per magazine
+- Fires 5 pellets in a spread — devastating up close
+- Slow fire rate and longer reload
 
-No build step needed. Just open `arena-shooter.html` in any modern browser.
+---
 
-```bash
-# Clone and open
-git clone https://github.com/YatharthSharma1309/arena-deathmatch.git
-cd arena-deathmatch
-open arena-shooter.html   # or double-click the file
+## Waves
+
+- Killing all enemies on screen ends the wave
+- Each new wave adds more enemies (up to 3 at once) with more health and speed
+- There is no final wave — survive as long as you can
+
+---
+
+## Health Packs
+
+Three health packs are placed around the arena. Walk over one to restore **+30 HP**. They reset between waves.
+
+---
+
+## HUD at a Glance
+
+```
+┌──────────────────────────────────────────────┐
+│  WAVE 3  |  KILLS 7        [enemy HP bar]    │
+│                                               │
+│                  crosshair                    │
+│                                               │
+│  ♥ ████████░░   SHOTGUN  ◉ ◉ ◉ ◉ ◎ ◎         │
+└──────────────────────────────────────────────┘
 ```
 
-## Technical Details
+- **Health bar** — 10 segments, green → yellow → red as you take damage
+- **Ammo display** — bullet icons for the pistol, shell icons for the shotgun
+- **Wave + kill counter** — top centre
+- **Enemy HP bar** — appears when an enemy is in view
+- **Crosshair** — turns red when you're on target; flashes orange on a confirmed hit
+- **Minimap** — top-right corner; shows walls, your FOV cone, pulsing enemy blips, and health pack locations
 
-- **Renderer:** 2D Canvas API, 800×480 viewport
-- **FOV:** ~66° horizontal (camera plane length 0.66)
-- **Raycasting:** DDA per screen column, perpendicular distance for correct wall height
-- **Sprite rendering:** Inverse camera matrix transform, z-buffer occlusion per column
-- **Shooting:** Angle-based hit detection — checks angular offset to enemy then validates with a line-of-sight ray
-- **No external dependencies**
+---
 
-## License
+## End Screen
 
-MIT
+When you die the game shows:
+
+- **Wave reached** and **total kills**
+- **Accuracy** (shots that hit vs. shots fired)
+- **Time survived**
+- Your **personal best** (saved automatically)
+
+Two buttons appear:
+
+| Button | What it does |
+|---|---|
+| **RESTART** | Replay immediately on the same difficulty |
+| **CHANGE DIFFICULTY** | Returns to the start screen so you can pick a new difficulty |
+
+---
+
+## Tips
+
+- **Stay mobile.** Enemies strafe when they close in — a stationary player is easy to hit.
+- **Use health packs early.** They respawn each wave, so there is no reason to hoard them.
+- **Shotgun at close range, pistol at distance.** The shotgun's spread wastes pellets at long range.
+- **Watch the minimap.** Enemy blips pulse faster when they have line of sight on you.
+- **Harder difficulties react faster.** On Hard the enemy spots you from further away and shoots more frequently.
